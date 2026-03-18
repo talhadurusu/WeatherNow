@@ -6,15 +6,29 @@ interface WeatherIconProps {
   className?: string;
 }
 
+const CONDITION_LABELS: Record<string, string> = {
+  heavy_snow: 'Heavy snow icon',
+  light_snow: 'Light snow icon',
+  heavy_rain: 'Heavy rain icon',
+  rain: 'Rain icon',
+  drizzle: 'Drizzle icon',
+  thunderstorm: 'Thunderstorm icon',
+  fog: 'Fog icon',
+  cloudy: 'Cloudy icon',
+  partly_cloudy: 'Partly cloudy icon',
+  clear: 'Clear sky icon',
+};
+
 const WeatherIcon: React.FC<WeatherIconProps> = ({ conditionCode, size = 40, className = '' }) => {
   const s = size;
+  const ariaLabel = CONDITION_LABELS[conditionCode] ?? 'Weather icon';
 
   const icon = (() => {
     switch (conditionCode) {
       case 'heavy_snow':
       case 'light_snow':
         return (
-          <svg width={s} height={s} viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <svg aria-hidden="true" width={s} height={s} viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
             <line x1="32" y1="4" x2="32" y2="60" stroke="#a5d8ff" strokeWidth="4" strokeLinecap="round"/>
             <line x1="4" y1="32" x2="60" y2="32" stroke="#a5d8ff" strokeWidth="4" strokeLinecap="round"/>
             <line x1="9.37" y1="9.37" x2="54.63" y2="54.63" stroke="#a5d8ff" strokeWidth="4" strokeLinecap="round"/>
@@ -34,7 +48,7 @@ const WeatherIcon: React.FC<WeatherIconProps> = ({ conditionCode, size = 40, cla
       case 'heavy_rain':
       case 'rain':
         return (
-          <svg width={s} height={s} viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <svg aria-hidden="true" width={s} height={s} viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path d="M14 38a18 18 0 1 1 36 0" stroke="#74b9ff" strokeWidth="3" strokeLinecap="round"/>
             <rect x="10" y="36" width="44" height="14" rx="7" fill="#74b9ff"/>
             <line x1="20" y1="54" x2="16" y2="62" stroke="#0984e3" strokeWidth="3" strokeLinecap="round"/>
@@ -45,7 +59,7 @@ const WeatherIcon: React.FC<WeatherIconProps> = ({ conditionCode, size = 40, cla
 
       case 'drizzle':
         return (
-          <svg width={s} height={s} viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <svg aria-hidden="true" width={s} height={s} viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path d="M16 36a16 16 0 1 1 32 0" stroke="#74b9ff" strokeWidth="3" strokeLinecap="round"/>
             <rect x="12" y="34" width="40" height="12" rx="6" fill="#74b9ff"/>
             <line x1="22" y1="50" x2="20" y2="58" stroke="#0984e3" strokeWidth="2.5" strokeLinecap="round"/>
@@ -56,7 +70,7 @@ const WeatherIcon: React.FC<WeatherIconProps> = ({ conditionCode, size = 40, cla
 
       case 'thunderstorm':
         return (
-          <svg width={s} height={s} viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <svg aria-hidden="true" width={s} height={s} viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path d="M14 34a18 18 0 1 1 36 0" stroke="#636e72" strokeWidth="3" strokeLinecap="round"/>
             <rect x="10" y="32" width="44" height="14" rx="7" fill="#636e72"/>
             <polyline points="36,46 28,56 34,56 26,66" stroke="#fdcb6e" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
@@ -65,7 +79,7 @@ const WeatherIcon: React.FC<WeatherIconProps> = ({ conditionCode, size = 40, cla
 
       case 'fog':
         return (
-          <svg width={s} height={s} viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <svg aria-hidden="true" width={s} height={s} viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
             <line x1="8" y1="24" x2="56" y2="24" stroke="#b2bec3" strokeWidth="4" strokeLinecap="round"/>
             <line x1="14" y1="34" x2="50" y2="34" stroke="#b2bec3" strokeWidth="4" strokeLinecap="round"/>
             <line x1="8" y1="44" x2="56" y2="44" stroke="#b2bec3" strokeWidth="4" strokeLinecap="round"/>
@@ -74,7 +88,7 @@ const WeatherIcon: React.FC<WeatherIconProps> = ({ conditionCode, size = 40, cla
 
       case 'cloudy':
         return (
-          <svg width={s} height={s} viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <svg aria-hidden="true" width={s} height={s} viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path d="M16 42a16 16 0 1 1 32 0" stroke="#b2bec3" strokeWidth="3" strokeLinecap="round"/>
             <rect x="12" y="40" width="40" height="14" rx="7" fill="#b2bec3"/>
           </svg>
@@ -82,7 +96,7 @@ const WeatherIcon: React.FC<WeatherIconProps> = ({ conditionCode, size = 40, cla
 
       case 'partly_cloudy':
         return (
-          <svg width={s} height={s} viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <svg aria-hidden="true" width={s} height={s} viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
             <circle cx="20" cy="22" r="12" fill="#fdcb6e"/>
             <circle cx="20" cy="22" r="8" fill="#ffeaa7"/>
             {/* Sun rays */}
@@ -98,7 +112,7 @@ const WeatherIcon: React.FC<WeatherIconProps> = ({ conditionCode, size = 40, cla
       case 'clear':
       default:
         return (
-          <svg width={s} height={s} viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <svg aria-hidden="true" width={s} height={s} viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
             <circle cx="32" cy="32" r="14" fill="#fdcb6e"/>
             <circle cx="32" cy="32" r="10" fill="#ffeaa7"/>
             <line x1="32" y1="4" x2="32" y2="12" stroke="#fdcb6e" strokeWidth="3" strokeLinecap="round"/>
@@ -114,7 +128,7 @@ const WeatherIcon: React.FC<WeatherIconProps> = ({ conditionCode, size = 40, cla
     }
   })();
 
-  return <span className={className}>{icon}</span>;
+  return <span className={className} role="img" aria-label={ariaLabel}>{icon}</span>;
 };
 
 export default WeatherIcon;

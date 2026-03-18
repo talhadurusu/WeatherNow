@@ -28,6 +28,7 @@ const LampEffect: React.FC<LampEffectProps> = ({ isNight }) => {
         viewBox="0 0 90 260"
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
+        aria-hidden="true"
       >
         {/* Lamp glow halo */}
         <ellipse cx="45" cy="55" rx="34" ry="34" fill="url(#lampHalo)" />

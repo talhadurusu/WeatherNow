@@ -4,13 +4,17 @@ import WeatherIcon from './WeatherIcon';
 import ForecastPanel from './ForecastPanel';
 import WeatherStats from './WeatherStats';
 import ParticleEffect from './ParticleEffect';
-import LampEffect from './LampEffect';
 
 interface WeatherCardProps {
   data: WeatherResponse;
 }
 
 type ParticleType = 'snow' | 'rain' | 'none';
+
+function seededValue(seed: number): number {
+  const value = Math.sin(seed * 9999.91) * 10000;
+  return value - Math.floor(value);
+}
 
 function getBackgroundGradient(conditionCode: string, isNight: boolean): string {
   if (isNight) {
@@ -102,6 +106,7 @@ const WeatherCard: React.FC<WeatherCardProps> = ({ data }) => {
   const accentColor = useMemo(() => getTextAccentColor(data.conditionCode, isNight), [data.conditionCode, isNight]);
 
   const starCount = isNight ? 80 : 0;
+  const cloudCount = isNight ? 0 : 5;
 
   return (
     <div
@@ -119,6 +124,70 @@ const WeatherCard: React.FC<WeatherCardProps> = ({ data }) => {
         transition: 'background 1s ease',
       }}
     >
+      {!isNight && (
+        <>
+          <div
+            style={{
+              position: 'fixed',
+              top: '-90px',
+              right: '-90px',
+              width: '300px',
+              height: '300px',
+              borderRadius: '50%',
+              background: 'radial-gradient(circle, rgba(255, 226, 140, 0.42) 0%, rgba(255, 226, 140, 0.08) 50%, rgba(255, 226, 140, 0) 72%)',
+              zIndex: 0,
+              pointerEvents: 'none',
+              animation: 'sunPulse 7s ease-in-out infinite',
+            }}
+          />
+
+          <div
+            style={{
+              position: 'fixed',
+              inset: 0,
+              zIndex: 0,
+              pointerEvents: 'none',
+              overflow: 'hidden',
+            }}
+          >
+            {Array.from({ length: cloudCount }).map((_, i) => (
+              <div
+                key={i}
+                style={{
+                  position: 'absolute',
+                  top: `${8 + i * 11}%`,
+                  left: `${(i * 23) % 100}%`,
+                  width: `${100 + i * 18}px`,
+                  height: `${30 + i * 6}px`,
+                  borderRadius: '999px',
+                  background: 'rgba(255,255,255,0.20)',
+                  filter: 'blur(1px)',
+                  opacity: 0.55,
+                  animation: `cloudDrift ${20 + i * 5}s linear ${i * -4}s infinite`,
+                }}
+              />
+            ))}
+          </div>
+        </>
+      )}
+
+      {isNight && (
+        <div
+          style={{
+            position: 'fixed',
+            top: '7%',
+            right: '8%',
+            width: '170px',
+            height: '170px',
+            borderRadius: '50%',
+            zIndex: 0,
+            pointerEvents: 'none',
+            background: 'radial-gradient(circle, rgba(233, 244, 255, 0.26) 0%, rgba(233, 244, 255, 0.08) 46%, rgba(233, 244, 255, 0) 72%)',
+            animation: 'moonGlow 5.5s ease-in-out infinite',
+          }}
+        />
+      )}
+
       {/* Stars for night mode */}
       {isNight && (
         <div
@@ -135,14 +204,14 @@ const WeatherCard: React.FC<WeatherCardProps> = ({ data }) => {
               key={i}
               style={{
                 position: 'absolute',
-                left: `${Math.random() * 100}%`,
-                top: `${Math.random() * 60}%`,
-                width: `${Math.random() * 2 + 1}px`,
-                height: `${Math.random() * 2 + 1}px`,
+                left: `${seededValue(i + 1) * 100}%`,
+                top: `${seededValue(i + 31) * 60}%`,
+                width: `${seededValue(i + 71) * 2 + 1}px`,
+                height: `${seededValue(i + 91) * 2 + 1}px`,
                 borderRadius: '50%',
                 background: '#fff',
-                opacity: Math.random() * 0.7 + 0.2,
-                animation: `twinkle ${(Math.random() * 3 + 2).toFixed(1)}s ease-in-out ${(Math.random() * 2).toFixed(1)}s infinite alternate`,
+                opacity: seededValue(i + 121) * 0.7 + 0.2,
+                animation: `twinkle ${(seededValue(i + 151) * 3 + 2).toFixed(1)}s ease-in-out ${(seededValue(i + 181) * 2).toFixed(1)}s infinite alternate`,
               }}
             />
           ))}
@@ -150,10 +219,7 @@ const WeatherCard: React.FC<WeatherCardProps> = ({ data }) => {
       )}
 
       {/* Animated particles (snow/rain) */}
-      <ParticleEffect type={particleType} count={particleType === 'snow' ? 130 : 90} />
-
-      {/* Lamp & light cast (night only) */}
-      <LampEffect isNight={isNight} />
+      <ParticleEffect type={particleType} count={particleType === 'snow' ? 105 : 70} />
 
       {/* Main content */}
       <div
@@ -163,9 +229,10 @@ const WeatherCard: React.FC<WeatherCardProps> = ({ data }) => {
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
-          gap: '24px',
+          gap: '20px',
           maxWidth: '560px',
           width: '100%',
+          padding: '8px 4px 16px',
         }}
       >
         {/* Location / App title */}
@@ -173,7 +240,7 @@ const WeatherCard: React.FC<WeatherCardProps> = ({ data }) => {
           <h1
             style={{
               margin: 0,
-              fontSize: '18px',
+              fontSize: '17px',
               fontWeight: 600,
               color: 'rgba(255,255,255,0.6)',
               letterSpacing: '0.15em',
@@ -208,7 +275,7 @@ const WeatherCard: React.FC<WeatherCardProps> = ({ data }) => {
         <div style={{ textAlign: 'center' }}>
           <div
             style={{
-              fontSize: 'clamp(72px, 14vw, 110px)',
+              fontSize: 'clamp(58px, 13vw, 106px)',
               fontWeight: 800,
               lineHeight: 1,
               color: '#ffffff',
@@ -323,6 +390,18 @@ const WeatherCard: React.FC<WeatherCardProps> = ({ data }) => {
         @keyframes float {
           0%, 100% { transform: translateY(0px); }
           50% { transform: translateY(-10px); }
+        }
+        @keyframes sunPulse {
+          0%, 100% { transform: scale(1); opacity: 0.8; }
+          50% { transform: scale(1.08); opacity: 1; }
+        }
+        @keyframes moonGlow {
+          0%, 100% { transform: scale(1); opacity: 0.72; }
+          50% { transform: scale(1.05); opacity: 0.92; }
+        }
+        @keyframes cloudDrift {
+          0% { transform: translateX(-22vw); }
+          100% { transform: translateX(132vw); }
         }
         @keyframes twinkle {
           0% { opacity: 0.2; }

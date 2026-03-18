@@ -1,5 +1,6 @@
-import { WeatherResponse } from '../types/weather';
+import { WeatherQuery, WeatherResponse } from '../types/weather';
 import { aggregateWeather } from '../services/weatherService';
+import { createHash } from 'crypto';
 
 const CACHE_TTL_MS = 60_000; // 60 seconds
 
@@ -8,20 +9,40 @@ interface CacheEntry {
   expiresAt: number;
 }
 
-let cache: CacheEntry | null = null;
+const cache = new Map<string, CacheEntry>();
 
-export function getCachedWeather(): WeatherResponse {
-  const now = Date.now();
+function buildCacheKey(query: WeatherQuery): string {
+  let raw = 'default';
 
-  if (cache && now < cache.expiresAt) {
-    return cache.data;
+  if (query.city) {
+    raw = `city:${query.city.trim().toLowerCase()}`;
+  } else if (typeof query.lat === 'number' && typeof query.lon === 'number') {
+    raw = `coords:${query.lat.toFixed(2)},${query.lon.toFixed(2)}`;
   }
 
-  const fresh = aggregateWeather();
-  cache = { data: fresh, expiresAt: now + CACHE_TTL_MS };
+  const digest = createHash('sha256').update(raw).digest('hex').slice(0, 20);
+  return `q:${digest}`;
+}
+
+export function getCachedWeather(query: WeatherQuery = {}): WeatherResponse {
+  const now = Date.now();
+  const key = buildCacheKey(query);
+  const entry = cache.get(key);
+
+  if (entry && now < entry.expiresAt) {
+    return entry.data;
+  }
+
+  const fresh = aggregateWeather(query);
+  cache.set(key, { data: fresh, expiresAt: now + CACHE_TTL_MS });
   return fresh;
 }
 
-export function invalidateCache(): void {
-  cache = null;
+export function invalidateCache(query?: WeatherQuery): void {
+  if (!query) {
+    cache.clear();
+    return;
+  }
+
+  cache.delete(buildCacheKey(query));
 }

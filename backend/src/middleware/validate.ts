@@ -4,6 +4,10 @@ import { Request, Response, NextFunction } from 'express';
 const CITY_RE = /^[\p{L}\p{M}\s\-'.]{1,100}$/u;          // Unicode letters, spaces, hyphens, apostrophes, dots
 const COORD_RE = /^-?\d{1,3}(\.\d{1,8})?$/;               // decimal latitude / longitude
 
+function roundToTwoDecimals(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
 /**
  * Validates and sanitizes recognised query parameters for the weather endpoint.
  * Any parameter that is present but fails validation is rejected immediately
@@ -77,6 +81,55 @@ export function validateWeatherQuery(req: Request, res: Response, next: NextFunc
       return;
     }
   }
+
+  next();
+}
+
+/**
+ * Validates POST /api/weather JSON body for privacy-preserving coordinate input.
+ * Only lat/lon are accepted and values are rounded to 2 decimals server-side.
+ */
+export function validateWeatherBody(req: Request, res: Response, next: NextFunction): void {
+  if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body)) {
+    res.status(400).json({
+      error: 'Bad Request',
+      message: 'Body must be a JSON object with lat and lon.',
+    });
+    return;
+  }
+
+  const { lat, lon, ...rest } = req.body as Record<string, unknown>;
+
+  if (Object.keys(rest).length > 0) {
+    res.status(400).json({
+      error: 'Bad Request',
+      message: `Unknown body field(s): ${Object.keys(rest).join(', ')}`,
+    });
+    return;
+  }
+
+  if (typeof lat !== 'number' || !Number.isFinite(lat)) {
+    res.status(400).json({ error: 'Bad Request', message: 'Invalid latitude value.' });
+    return;
+  }
+
+  if (typeof lon !== 'number' || !Number.isFinite(lon)) {
+    res.status(400).json({ error: 'Bad Request', message: 'Invalid longitude value.' });
+    return;
+  }
+
+  if (lat < -90 || lat > 90) {
+    res.status(400).json({ error: 'Bad Request', message: 'Latitude must be between -90 and 90.' });
+    return;
+  }
+
+  if (lon < -180 || lon > 180) {
+    res.status(400).json({ error: 'Bad Request', message: 'Longitude must be between -180 and 180.' });
+    return;
+  }
+
+  req.body.lat = roundToTwoDecimals(lat);
+  req.body.lon = roundToTwoDecimals(lon);
 
   next();
 }

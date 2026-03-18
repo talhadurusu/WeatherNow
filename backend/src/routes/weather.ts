@@ -1,7 +1,8 @@
 import { Router, Request, Response } from 'express';
 import { rateLimit } from 'express-rate-limit';
 import { getCachedWeather } from '../services/cacheService';
-import { validateWeatherQuery } from '../middleware/validate';
+import { validateWeatherBody, validateWeatherQuery } from '../middleware/validate';
+import { WeatherQuery } from '../types/weather';
 
 const router = Router();
 
@@ -17,11 +18,41 @@ const weatherLimiter = rateLimit({
 });
 
 // GET /api/weather?city=<name>  or  GET /api/weather?lat=<lat>&lon=<lon>
-router.get('/', weatherLimiter, validateWeatherQuery, (_req: Request, res: Response) => {
+router.get('/', weatherLimiter, validateWeatherQuery, (req: Request, res: Response) => {
   try {
-    const weather = getCachedWeather();
+    const query: WeatherQuery = {};
+
+    if (typeof req.query.city === 'string') {
+      query.city = req.query.city;
+    }
+
+    if (typeof req.query.lat === 'string' && typeof req.query.lon === 'string') {
+      query.lat = parseFloat(req.query.lat);
+      query.lon = parseFloat(req.query.lon);
+    }
+
+    const weather = getCachedWeather(query);
     res.json(weather);
   } catch {
+    // Do not print request payload details to avoid leaking location data.
+    console.error('Weather endpoint failed (GET).');
+    res.status(500).json({ error: 'Failed to fetch weather data' });
+  }
+});
+
+// POST /api/weather with JSON body: { "lat": number, "lon": number }
+router.post('/', weatherLimiter, validateWeatherBody, (req: Request, res: Response) => {
+  try {
+    const query: WeatherQuery = {
+      lat: req.body.lat as number,
+      lon: req.body.lon as number,
+    };
+
+    const weather = getCachedWeather(query);
+    res.json(weather);
+  } catch {
+    // Do not print request payload details to avoid leaking location data.
+    console.error('Weather endpoint failed (POST).');
     res.status(500).json({ error: 'Failed to fetch weather data' });
   }
 });

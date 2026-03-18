@@ -23,6 +23,12 @@ export interface ForecastDay {
   tempLow: number;
 }
 
+export interface WeatherQuery {
+  city?: string;
+  lat?: number;
+  lon?: number;
+}
+
 // Raw source shapes (before normalization)
 export interface OpenWeatherRaw {
   main: {

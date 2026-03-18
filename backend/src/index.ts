@@ -11,6 +11,26 @@ const PORT = process.env.PORT ?? 3001;
 // In production set FRONTEND_ORIGIN env var to your deployed frontend URL.
 const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN ?? 'http://localhost:3000';
 
+function ensureValidOrigin(origin: string): string {
+  try {
+    const parsed = new URL(origin);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      throw new Error('Origin must use http or https protocol');
+    }
+    return parsed.origin;
+  } catch {
+    throw new Error('FRONTEND_ORIGIN must be a valid absolute URL (example: https://weather.example.com).');
+  }
+}
+
+if (process.env.NODE_ENV === 'production' && !process.env.FRONTEND_ORIGIN) {
+  throw new Error('FRONTEND_ORIGIN is required in production.');
+}
+
+const validatedFrontendOrigin = ensureValidOrigin(FRONTEND_ORIGIN);
+
+app.disable('x-powered-by');
+
 // ─── Helmet – secure HTTP headers ────────────────────────────────────────────
 // Configures Content-Security-Policy, X-Frame-Options, X-Content-Type-Options,
 // Strict-Transport-Security, Referrer-Policy, and many more by default.
@@ -27,8 +47,8 @@ app.use(
 
 // ─── CORS – strict single-origin allowlist ───────────────────────────────────
 const corsOptions: cors.CorsOptions = {
-  origin: FRONTEND_ORIGIN,
-  methods: ['GET'],
+  origin: validatedFrontendOrigin,
+  methods: ['GET', 'POST'],
   allowedHeaders: ['Content-Type'],
   optionsSuccessStatus: 200,
 };
@@ -61,7 +81,7 @@ app.get('/health', (_req, res) => {
 // ─── Server ──────────────────────────────────────────────────────────────────
 app.listen(PORT, () => {
   console.log(`WeatherNow backend running on http://localhost:${PORT}`);
-  console.log(`Accepting requests from: ${FRONTEND_ORIGIN}`);
+  console.log(`Accepting requests from: ${validatedFrontendOrigin}`);
 });
 
 export default app;

@@ -1,11 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { WeatherResponse } from '../types/weather';
+import type { CitySuggestion, WeatherResponse } from '../types/weather';
+import { detectDeviceLocale } from '../i18n';
 
 type WeatherLocation =
   | { mode: 'none' }
-  | { mode: 'city'; city: string }
-  | { mode: 'coords'; lat: number; lon: number };
+  | { mode: 'city'; city: string; country?: string }
+  | { mode: 'coords'; lat: number; lon: number; city?: string; country?: string; countryCode?: string; sourceMode: 'gps' | 'manual' };
 
 interface UseWeatherResult {
   data: WeatherResponse | undefined;
@@ -15,7 +16,10 @@ interface UseWeatherResult {
   error: Error | null;
   needsManualCity: boolean;
   locationMode: WeatherLocation['mode'];
+  locale: string;
   setManualCity: (city: string) => void;
+  setManualLocation: (selection: CitySuggestion) => void;
+  fetchCitySuggestions: (query: string) => Promise<CitySuggestion[]>;
   requestGeolocation: () => void;
 }
 
@@ -23,18 +27,27 @@ function roundCoord(value: number): number {
   return Math.round(value * 100) / 100;
 }
 
-async function fetchWeather(location: WeatherLocation): Promise<WeatherResponse> {
+async function fetchWeather(location: WeatherLocation, locale: string): Promise<WeatherResponse> {
   let res: Response;
 
   if (location.mode === 'coords') {
     res = await fetch('/api/weather', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ lat: location.lat, lon: location.lon }),
+      body: JSON.stringify({
+        lat: location.lat,
+        lon: location.lon,
+        city: location.city,
+        country: location.country,
+        countryCode: location.countryCode,
+        sourceMode: location.sourceMode,
+        locale,
+      }),
     });
   } else if (location.mode === 'city') {
     const city = encodeURIComponent(location.city);
-    res = await fetch(`/api/weather?city=${city}`);
+    const localeParam = encodeURIComponent(locale);
+    res = await fetch(`/api/weather?city=${city}&locale=${localeParam}`);
   } else {
     throw new Error('Location not selected');
   }
@@ -45,6 +58,7 @@ async function fetchWeather(location: WeatherLocation): Promise<WeatherResponse>
 
 export function useWeather(): UseWeatherResult {
   const geolocationInitialized = useRef(false);
+  const [locale] = useState<string>(() => detectDeviceLocale());
   const [location, setLocation] = useState<WeatherLocation>({ mode: 'none' });
   const [needsManualCity, setNeedsManualCity] = useState(false);
 
@@ -59,7 +73,7 @@ export function useWeather(): UseWeatherResult {
       (position) => {
         const lat = roundCoord(position.coords.latitude);
         const lon = roundCoord(position.coords.longitude);
-        setLocation({ mode: 'coords', lat, lon });
+        setLocation({ mode: 'coords', lat, lon, sourceMode: 'gps' });
         setNeedsManualCity(false);
       },
       () => {
@@ -94,9 +108,35 @@ export function useWeather(): UseWeatherResult {
     setNeedsManualCity(false);
   }, []);
 
+  const setManualLocation = useCallback((selection: CitySuggestion) => {
+    setLocation({
+      mode: 'coords',
+      lat: roundCoord(selection.lat),
+      lon: roundCoord(selection.lon),
+      city: selection.city,
+      country: selection.country,
+      countryCode: selection.countryCode,
+      sourceMode: 'manual',
+    });
+    setNeedsManualCity(false);
+  }, []);
+
+  const fetchCitySuggestions = useCallback(async (query: string) => {
+    const normalized = query.trim();
+    if (normalized.length < 2) return [] as CitySuggestion[];
+
+    const q = encodeURIComponent(normalized);
+    const localeParam = encodeURIComponent(locale);
+    const res = await fetch(`/api/weather/cities?q=${q}&locale=${localeParam}`);
+    if (!res.ok) return [] as CitySuggestion[];
+
+    const payload = (await res.json()) as { suggestions?: CitySuggestion[] };
+    return payload.suggestions ?? [];
+  }, [locale]);
+
   const query = useQuery<WeatherResponse, Error>({
-    queryKey: ['weather', location],
-    queryFn: () => fetchWeather(location),
+    queryKey: ['weather', location, locale],
+    queryFn: () => fetchWeather(location, locale),
     enabled: location.mode !== 'none',
     staleTime: 30_000,          // treat data as fresh for 30 s
     refetchInterval: 60_000,    // background refetch every 60 s
@@ -111,7 +151,10 @@ export function useWeather(): UseWeatherResult {
     error: query.error,
     needsManualCity,
     locationMode: location.mode,
+    locale,
     setManualCity,
+    setManualLocation,
+    fetchCitySuggestions,
     requestGeolocation,
   };
 }

@@ -1,12 +1,14 @@
 import React from 'react';
 import type { ForecastDay } from '../types/weather';
 import WeatherIcon from './WeatherIcon';
+import { t } from '../i18n';
 
 interface ForecastPanelProps {
   forecast: ForecastDay[];
+  locale: string;
 }
 
-const ForecastPanel: React.FC<ForecastPanelProps> = ({ forecast }) => {
+const ForecastPanel: React.FC<ForecastPanelProps> = ({ forecast, locale }) => {
   return (
     <div
       style={{
@@ -47,7 +49,7 @@ const ForecastPanel: React.FC<ForecastPanelProps> = ({ forecast }) => {
               letterSpacing: '0.08em',
             }}
           >
-            {i === 0 ? 'Bugün' : day.day}
+            {i === 0 ? t(locale, 'today') : day.day}
           </span>
 
           <WeatherIcon conditionCode={day.conditionCode} size={32} />

@@ -20,4 +20,22 @@ export interface WeatherResponse {
   sources: string[];
   accuracy: string;
   lastUpdated: string;
+  location: LocationInfo;
+}
+
+export interface LocationInfo {
+  city: string;
+  country: string;
+  countryCode: string;
+  displayName: string;
+  sourceMode: 'gps' | 'manual' | 'city';
+}
+
+export interface CitySuggestion {
+  city: string;
+  country: string;
+  countryCode: string;
+  lat: number;
+  lon: number;
+  displayName: string;
 }

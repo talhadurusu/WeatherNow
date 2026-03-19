@@ -1,4 +1,5 @@
 import React from 'react';
+import { t } from '../i18n';
 
 interface StatItem {
   label: string;
@@ -13,6 +14,7 @@ interface WeatherStatsProps {
   visibility: number;
   pressure: number;
   feelsLike: number;
+  locale: string;
 }
 
 const WeatherStats: React.FC<WeatherStatsProps> = ({
@@ -22,13 +24,14 @@ const WeatherStats: React.FC<WeatherStatsProps> = ({
   visibility,
   pressure,
   feelsLike,
+  locale,
 }) => {
   const stats: StatItem[] = [
-    { label: 'Hissedilen', value: `${feelsLike}°C`, icon: '🌡️' },
-    { label: 'Nem', value: `${humidity}%`, icon: '💧' },
-    { label: 'Rüzgar', value: `${windSpeed} km/h ${windDirection}`, icon: '💨' },
-    { label: 'Görüş', value: `${visibility} km`, icon: '👁️' },
-    { label: 'Basınç', value: `${pressure} hPa`, icon: '⏱️' },
+    { label: t(locale, 'feelsLike'), value: `${feelsLike}°C`, icon: '🌡️' },
+    { label: t(locale, 'humidity'), value: `${humidity}%`, icon: '💧' },
+    { label: t(locale, 'wind'), value: `${windSpeed} km/h ${windDirection}`, icon: '💨' },
+    { label: t(locale, 'visibility'), value: `${visibility} km`, icon: '👁️' },
+    { label: t(locale, 'pressure'), value: `${pressure} hPa`, icon: '⏱️' },
   ];
 
   return (

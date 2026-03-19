@@ -3,6 +3,7 @@ import { Request, Response, NextFunction } from 'express';
 // Allowed query parameters and their validation rules for /api/weather
 const CITY_RE = /^[\p{L}\p{M}\s\-'.]{1,100}$/u;          // Unicode letters, spaces, hyphens, apostrophes, dots
 const COORD_RE = /^-?\d{1,3}(\.\d{1,8})?$/;               // decimal latitude / longitude
+const LOCALE_RE = /^[a-zA-Z]{2,3}([-_][a-zA-Z]{2,4})?$/;
 
 function roundToTwoDecimals(value: number): number {
   return Math.round(value * 100) / 100;
@@ -23,7 +24,7 @@ function roundToTwoDecimals(value: number): number {
  * reach route handlers.
  */
 export function validateWeatherQuery(req: Request, res: Response, next: NextFunction): void {
-  const { city, lat, lon, ...rest } = req.query;
+  const { city, lat, lon, locale, ...rest } = req.query;
 
   // Reject unknown / extra query parameters
   if (Object.keys(rest).length > 0) {
@@ -45,6 +46,14 @@ export function validateWeatherQuery(req: Request, res: Response, next: NextFunc
     }
     // Store sanitized city back (trim whitespace)
     req.query['city'] = city.trim();
+  }
+
+  if (locale !== undefined) {
+    if (typeof locale !== 'string' || !LOCALE_RE.test(locale)) {
+      res.status(400).json({ error: 'Bad Request', message: 'Invalid locale value.' });
+      return;
+    }
+    req.query['locale'] = locale.replace('_', '-');
   }
 
   // Validate lat / lon (must be provided together or not at all)
@@ -98,7 +107,7 @@ export function validateWeatherBody(req: Request, res: Response, next: NextFunct
     return;
   }
 
-  const { lat, lon, ...rest } = req.body as Record<string, unknown>;
+  const { lat, lon, city, country, countryCode, locale, sourceMode, ...rest } = req.body as Record<string, unknown>;
 
   if (Object.keys(rest).length > 0) {
     res.status(400).json({
@@ -128,8 +137,66 @@ export function validateWeatherBody(req: Request, res: Response, next: NextFunct
     return;
   }
 
+  if (city !== undefined && (typeof city !== 'string' || !CITY_RE.test(city))) {
+    res.status(400).json({ error: 'Bad Request', message: 'Invalid city value.' });
+    return;
+  }
+
+  if (country !== undefined && typeof country !== 'string') {
+    res.status(400).json({ error: 'Bad Request', message: 'Invalid country value.' });
+    return;
+  }
+
+  if (countryCode !== undefined && typeof countryCode !== 'string') {
+    res.status(400).json({ error: 'Bad Request', message: 'Invalid country code value.' });
+    return;
+  }
+
+  if (locale !== undefined && (typeof locale !== 'string' || !LOCALE_RE.test(locale))) {
+    res.status(400).json({ error: 'Bad Request', message: 'Invalid locale value.' });
+    return;
+  }
+
+  if (sourceMode !== undefined && sourceMode !== 'gps' && sourceMode !== 'manual' && sourceMode !== 'city') {
+    res.status(400).json({ error: 'Bad Request', message: 'Invalid source mode.' });
+    return;
+  }
+
   req.body.lat = roundToTwoDecimals(lat);
   req.body.lon = roundToTwoDecimals(lon);
+  if (typeof city === 'string') req.body.city = city.trim();
+  if (typeof country === 'string') req.body.country = country.trim();
+  if (typeof countryCode === 'string') req.body.countryCode = countryCode.trim().toUpperCase();
+  if (typeof locale === 'string') req.body.locale = locale.replace('_', '-');
+  if (sourceMode !== undefined) req.body.sourceMode = sourceMode;
 
+  next();
+}
+
+export function validateCitySearchQuery(req: Request, res: Response, next: NextFunction): void {
+  const { q, locale, ...rest } = req.query;
+
+  if (Object.keys(rest).length > 0) {
+    res.status(400).json({
+      error: 'Bad Request',
+      message: `Unknown query parameter(s): ${Object.keys(rest).join(', ')}`,
+    });
+    return;
+  }
+
+  if (typeof q !== 'string' || q.trim().length < 2 || q.trim().length > 100 || !CITY_RE.test(q.trim())) {
+    res.status(400).json({ error: 'Bad Request', message: 'Invalid city search query.' });
+    return;
+  }
+
+  if (locale !== undefined) {
+    if (typeof locale !== 'string' || !LOCALE_RE.test(locale)) {
+      res.status(400).json({ error: 'Bad Request', message: 'Invalid locale value.' });
+      return;
+    }
+    req.query['locale'] = locale.replace('_', '-');
+  }
+
+  req.query['q'] = q.trim();
   next();
 }

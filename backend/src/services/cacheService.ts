@@ -12,12 +12,12 @@ interface CacheEntry {
 const cache = new Map<string, CacheEntry>();
 
 function buildCacheKey(query: WeatherQuery): string {
-  let raw = 'default';
+  let raw = `default|locale:${(query.locale ?? 'en').toLowerCase()}`;
 
   if (query.city) {
-    raw = `city:${query.city.trim().toLowerCase()}`;
+    raw = `city:${query.city.trim().toLowerCase()}|country:${(query.country ?? '').trim().toLowerCase()}|cc:${(query.countryCode ?? '').trim().toLowerCase()}|locale:${(query.locale ?? 'en').toLowerCase()}`;
   } else if (typeof query.lat === 'number' && typeof query.lon === 'number') {
-    raw = `coords:${query.lat.toFixed(2)},${query.lon.toFixed(2)}`;
+    raw = `coords:${query.lat.toFixed(2)},${query.lon.toFixed(2)}|mode:${query.sourceMode ?? 'gps'}|locale:${(query.locale ?? 'en').toLowerCase()}`;
   }
 
   const digest = createHash('sha256').update(raw).digest('hex').slice(0, 20);

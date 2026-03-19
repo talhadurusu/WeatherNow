@@ -4,9 +4,11 @@ import WeatherIcon from './WeatherIcon';
 import ForecastPanel from './ForecastPanel';
 import WeatherStats from './WeatherStats';
 import ParticleEffect from './ParticleEffect';
+import { t } from '../i18n';
 
 interface WeatherCardProps {
   data: WeatherResponse;
+  locale: string;
 }
 
 type ParticleType = 'snow' | 'rain' | 'none';
@@ -85,10 +87,10 @@ function getTextAccentColor(conditionCode: string, isNight: boolean): string {
   }
 }
 
-function formatLastUpdated(iso: string): string {
+function formatLastUpdated(iso: string, locale: string): string {
   try {
     const d = new Date(iso);
-    return d.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    return d.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit', second: '2-digit' });
   } catch {
     return iso;
   }
@@ -99,7 +101,7 @@ function isNightTime(): boolean {
   return hour < 6 || hour >= 20;
 }
 
-const WeatherCard: React.FC<WeatherCardProps> = ({ data }) => {
+const WeatherCard: React.FC<WeatherCardProps> = ({ data, locale }) => {
   const isNight = useMemo(() => isNightTime(), []);
   const particleType = useMemo(() => getParticleType(data.conditionCode), [data.conditionCode]);
   const bg = useMemo(() => getBackgroundGradient(data.conditionCode, isNight), [data.conditionCode, isNight]);
@@ -107,6 +109,21 @@ const WeatherCard: React.FC<WeatherCardProps> = ({ data }) => {
 
   const starCount = isNight ? 80 : 0;
   const cloudCount = isNight ? 0 : 5;
+  const particleCount = data.conditionCode === 'heavy_snow' ? 120 : data.conditionCode === 'heavy_rain' ? 90 : particleType === 'snow' ? 95 : 65;
+  const panelGlow = useMemo(() => {
+    if (data.conditionCode === 'thunderstorm') return '0 8px 30px rgba(44, 74, 120, 0.45)';
+    if (data.conditionCode === 'heavy_rain' || data.conditionCode === 'rain') return '0 8px 26px rgba(59, 110, 170, 0.35)';
+    if (data.conditionCode === 'heavy_snow' || data.conditionCode === 'light_snow') return '0 8px 28px rgba(180, 220, 255, 0.25)';
+    if (data.conditionCode === 'clear') return '0 8px 26px rgba(255, 218, 125, 0.28)';
+    return '0 8px 24px rgba(0, 0, 0, 0.26)';
+  }, [data.conditionCode]);
+
+  const sourceModeLabel =
+    data.location.sourceMode === 'gps'
+      ? t(locale, 'gpsMode')
+      : data.location.sourceMode === 'manual'
+        ? t(locale, 'manualMode')
+        : t(locale, 'cityMode');
 
   return (
     <div
@@ -121,7 +138,7 @@ const WeatherCard: React.FC<WeatherCardProps> = ({ data }) => {
         padding: '20px',
         position: 'relative',
         overflow: 'hidden',
-        transition: 'background 1s ease',
+        transition: 'background 1.2s ease, filter 0.8s ease',
       }}
     >
       {!isNight && (
@@ -219,7 +236,7 @@ const WeatherCard: React.FC<WeatherCardProps> = ({ data }) => {
       )}
 
       {/* Animated particles (snow/rain) */}
-      <ParticleEffect type={particleType} count={particleType === 'snow' ? 105 : 70} />
+      <ParticleEffect type={particleType} count={particleCount} />
 
       {/* Main content */}
       <div
@@ -233,6 +250,7 @@ const WeatherCard: React.FC<WeatherCardProps> = ({ data }) => {
           maxWidth: '560px',
           width: '100%',
           padding: '8px 4px 16px',
+          transition: 'transform 0.45s ease, opacity 0.45s ease',
         }}
       >
         {/* Location / App title */}
@@ -247,7 +265,7 @@ const WeatherCard: React.FC<WeatherCardProps> = ({ data }) => {
               textTransform: 'uppercase',
             }}
           >
-            WeatherNow
+            {data.location.displayName || 'WeatherNow'}
           </h1>
           <p
             style={{
@@ -257,7 +275,18 @@ const WeatherCard: React.FC<WeatherCardProps> = ({ data }) => {
               letterSpacing: '0.08em',
             }}
           >
-            {isNight ? '🌙 Gece' : '☀️ Gündüz'} &nbsp;·&nbsp; Canlı Hava Durumu
+            {isNight ? `🌙 ${t(locale, 'night')}` : `☀️ ${t(locale, 'day')}`} &nbsp;·&nbsp; {t(locale, 'liveWeather')}
+          </p>
+          <p
+            style={{
+              margin: '6px 0 0',
+              fontSize: '11px',
+              color: 'rgba(255,255,255,0.62)',
+              letterSpacing: '0.08em',
+              textTransform: 'uppercase',
+            }}
+          >
+            {sourceModeLabel}
           </p>
         </div>
 
@@ -311,6 +340,8 @@ const WeatherCard: React.FC<WeatherCardProps> = ({ data }) => {
               borderRadius: '20px',
               padding: '5px 14px',
               border: '1px solid rgba(255,255,255,0.15)',
+              boxShadow: panelGlow,
+              transition: 'box-shadow 0.6s ease',
             }}
           >
             <span style={{ fontSize: '11px', color: '#4ade80', fontWeight: 700 }}>●</span>
@@ -335,6 +366,7 @@ const WeatherCard: React.FC<WeatherCardProps> = ({ data }) => {
           visibility={data.visibility}
           pressure={data.pressure}
           feelsLike={data.feelsLike}
+          locale={locale}
         />
 
         {/* 7-day forecast */}
@@ -349,9 +381,9 @@ const WeatherCard: React.FC<WeatherCardProps> = ({ data }) => {
               letterSpacing: '0.1em',
             }}
           >
-            7 Günlük Tahmin
+            {t(locale, 'sevenDayForecast')}
           </p>
-          <ForecastPanel forecast={data.forecast} />
+          <ForecastPanel forecast={data.forecast} locale={locale} />
         </div>
 
         {/* Source info + last updated */}
@@ -381,7 +413,7 @@ const WeatherCard: React.FC<WeatherCardProps> = ({ data }) => {
             ))}
           </div>
           <p style={{ margin: 0, fontSize: '11px', color: 'rgba(255,255,255,0.3)' }}>
-            Son güncelleme: {formatLastUpdated(data.lastUpdated)}
+            {t(locale, 'lastUpdated')}: {formatLastUpdated(data.lastUpdated, locale)}
           </p>
         </div>
       </div>

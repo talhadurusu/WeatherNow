@@ -7,13 +7,18 @@ import {
   WeatherQuery,
 } from '../types/weather';
 
-// ─── Turkish day-name helpers ────────────────────────────────────────────────
-const TR_DAYS = ['Paz', 'Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt'];
+type SupportedLanguage = 'tr' | 'en';
 
-function trDay(offset: number): string {
+function resolveLanguage(locale?: string): SupportedLanguage {
+  const base = (locale ?? 'en').toLowerCase();
+  if (base.startsWith('tr')) return 'tr';
+  return 'en';
+}
+
+function dayName(offset: number, locale: string): string {
   const d = new Date();
   d.setDate(d.getDate() + offset);
-  return TR_DAYS[d.getDay()];
+  return new Intl.DateTimeFormat(locale, { weekday: 'short' }).format(d);
 }
 
 // ─── Wind-degree → cardinal direction ────────────────────────────────────────
@@ -36,17 +41,36 @@ type ConditionCode =
   | 'partly_cloudy'
   | 'clear';
 
-const CONDITION_LABELS: Record<ConditionCode, string> = {
-  heavy_snow: 'Yoğun Kar Yağışlı',
-  light_snow: 'Hafif Kar Yağışlı',
-  heavy_rain: 'Şiddetli Yağmurlu',
-  rain: 'Yağmurlu',
-  drizzle: 'Çiseleyen Yağmur',
-  thunderstorm: 'Fırtınalı',
-  fog: 'Sisli',
-  cloudy: 'Bulutlu',
-  partly_cloudy: 'Parçalı Bulutlu',
-  clear: 'Açık',
+const CONDITION_LABELS: Record<SupportedLanguage, Record<ConditionCode, string>> = {
+  tr: {
+    heavy_snow: 'Yogun Kar Yagisli',
+    light_snow: 'Hafif Kar Yagisli',
+    heavy_rain: 'Siddetli Yagmurlu',
+    rain: 'Yagmurlu',
+    drizzle: 'Ciseleyen Yagmur',
+    thunderstorm: 'Firtinali',
+    fog: 'Sisli',
+    cloudy: 'Bulutlu',
+    partly_cloudy: 'Parcali Bulutlu',
+    clear: 'Acik',
+  },
+  en: {
+    heavy_snow: 'Heavy Snow',
+    light_snow: 'Light Snow',
+    heavy_rain: 'Heavy Rain',
+    rain: 'Rain',
+    drizzle: 'Drizzle',
+    thunderstorm: 'Thunderstorm',
+    fog: 'Fog',
+    cloudy: 'Cloudy',
+    partly_cloudy: 'Partly Cloudy',
+    clear: 'Clear',
+  },
+};
+
+const ACCURACY_LABELS: Record<SupportedLanguage, string> = {
+  tr: '3 Kaynaktan Harmanlanmis Yuksek Dogruluk',
+  en: 'High confidence blend from 3 sources',
 };
 
 // ─── Simulated OpenWeather response ──────────────────────────────────────────
@@ -222,7 +246,7 @@ function mostLikelyCondition(codes: ConditionCode[]): ConditionCode {
   return codes.reduce((a, b) => ((freq[a] ?? 0) >= (freq[b] ?? 0) ? a : b));
 }
 
-function buildForecast(baseCondition: ConditionCode): ForecastDay[] {
+function buildForecast(baseCondition: ConditionCode, locale: string): ForecastDay[] {
   // Simulated 7-day forecast variations around the base condition
   const variations: ConditionCode[] = [
     baseCondition,
@@ -243,7 +267,7 @@ function buildForecast(baseCondition: ConditionCode): ForecastDay[] {
     [3, -2],
   ];
   return variations.map((code, i) => ({
-    day: trDay(i),
+    day: dayName(i, locale),
     conditionCode: code,
     tempHigh: temps[i][0],
     tempLow: temps[i][1],
@@ -296,6 +320,8 @@ function selectConditionFromSeed(seed: number, fallback: ConditionCode): Conditi
 
 // ─── Main aggregation function ────────────────────────────────────────────────
 export function aggregateWeather(query: WeatherQuery = {}): WeatherResponse {
+  const locale = query.locale ?? 'en';
+  const lang = resolveLanguage(locale);
   const owRaw = fetchOpenWeather();
   const tiRaw = fetchTomorrowIo();
   const mnRaw = fetchMetNorway();
@@ -326,7 +352,7 @@ export function aggregateWeather(query: WeatherQuery = {}): WeatherResponse {
   const response: WeatherResponse = {
     temperature: Math.round(temperature * 10) / 10,
     feelsLike: Math.round(feelsLike * 10) / 10,
-    condition: CONDITION_LABELS[condition],
+    condition: CONDITION_LABELS[lang][condition],
     conditionCode: condition,
     humidity: Math.round(humidity),
     windSpeed: Math.round(windSpeed * 10) / 10,
@@ -334,10 +360,19 @@ export function aggregateWeather(query: WeatherQuery = {}): WeatherResponse {
     visibility: Math.round(visibility * 10) / 10,
     pressure: Math.round(pressure),
     uvIndex: Math.round(uvIndex * 10) / 10,
-    forecast: buildForecast(condition),
+    forecast: buildForecast(condition, locale),
     sources: ['OpenWeather', 'Tomorrow.io', 'MET Norway'],
-    accuracy: 'Harmanlanmış 3 Kaynak (Yüksek Doğruluk)',
+    accuracy: ACCURACY_LABELS[lang],
     lastUpdated: new Date().toISOString(),
+    location: {
+      city: query.city ?? 'Unknown',
+      country: query.country ?? 'Unknown',
+      countryCode: query.countryCode ?? '',
+      displayName: query.countryCode
+        ? `${query.city ?? 'Unknown'}, ${query.countryCode}`
+        : (query.country ? `${query.city ?? 'Unknown'}, ${query.country}` : (query.city ?? 'Unknown')),
+      sourceMode: query.sourceMode ?? (query.city ? 'city' : 'gps'),
+    },
   };
 
   return response;

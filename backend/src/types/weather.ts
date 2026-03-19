@@ -14,6 +14,15 @@ export interface WeatherResponse {
   sources: string[];
   accuracy: string;
   lastUpdated: string;        // ISO timestamp
+  location: LocationInfo;
+}
+
+export interface LocationInfo {
+  city: string;
+  country: string;
+  countryCode: string;
+  displayName: string;
+  sourceMode: 'gps' | 'manual' | 'city';
 }
 
 export interface ForecastDay {
@@ -25,8 +34,21 @@ export interface ForecastDay {
 
 export interface WeatherQuery {
   city?: string;
+  country?: string;
+  countryCode?: string;
   lat?: number;
   lon?: number;
+  locale?: string;
+  sourceMode?: 'gps' | 'manual' | 'city';
+}
+
+export interface CitySuggestion {
+  city: string;
+  country: string;
+  countryCode: string;
+  lat: number;
+  lon: number;
+  displayName: string;
 }
 
 // Raw source shapes (before normalization)

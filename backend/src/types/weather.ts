@@ -12,7 +12,9 @@ export interface WeatherResponse {
   uvIndex: number;
   forecast: ForecastDay[];
   sources: string[];
+  provider?: string;
   accuracy: string;
+  freshness?: 'fresh' | 'stale';
   lastUpdated: string;        // ISO timestamp
   location: LocationInfo;
 }

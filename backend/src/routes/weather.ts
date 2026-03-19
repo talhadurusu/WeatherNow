@@ -45,6 +45,12 @@ router.get('/', weatherLimiter, validateWeatherQuery, async (req: Request, res: 
         query.city = suggestions[0].city;
         query.country = suggestions[0].country;
         query.countryCode = suggestions[0].countryCode;
+        query.lat = suggestions[0].lat;
+        query.lon = suggestions[0].lon;
+        query.sourceMode = 'city';
+      } else {
+        res.status(404).json({ error: 'City not found' });
+        return;
       }
     }
 
@@ -59,7 +65,7 @@ router.get('/', weatherLimiter, validateWeatherQuery, async (req: Request, res: 
       query.countryCode = place.countryCode;
     }
 
-    const weather = getCachedWeather(query);
+    const weather = await getCachedWeather(query);
     res.json(weather);
   } catch {
     // Do not print request payload details to avoid leaking location data.
@@ -100,7 +106,7 @@ router.post('/', weatherLimiter, validateWeatherBody, async (req: Request, res: 
       query.countryCode = place.countryCode;
     }
 
-    const weather = getCachedWeather(query);
+    const weather = await getCachedWeather(query);
     res.json(weather);
   } catch {
     // Do not print request payload details to avoid leaking location data.

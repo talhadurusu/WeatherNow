@@ -52,7 +52,16 @@ async function fetchWeather(location: WeatherLocation, locale: string): Promise<
     throw new Error('Location not selected');
   }
 
-  if (!res.ok) throw new Error('Failed to fetch weather');
+  if (!res.ok) {
+    let message = 'Failed to fetch weather';
+    try {
+      const payload = (await res.json()) as { error?: string; message?: string };
+      message = payload.message ?? payload.error ?? message;
+    } catch {
+      // Keep generic message when provider does not return JSON.
+    }
+    throw new Error(message);
+  }
   return res.json() as Promise<WeatherResponse>;
 }
 
@@ -128,7 +137,17 @@ export function useWeather(): UseWeatherResult {
     const q = encodeURIComponent(normalized);
     const localeParam = encodeURIComponent(locale);
     const res = await fetch(`/api/weather/cities?q=${q}&locale=${localeParam}`);
-    if (!res.ok) return [] as CitySuggestion[];
+    if (!res.ok) {
+      if (res.status === 429) {
+        throw new Error('CITY_SEARCH_RATE_LIMIT');
+      }
+
+      if (res.status === 400) {
+        throw new Error('CITY_SEARCH_INVALID');
+      }
+
+      throw new Error('CITY_SEARCH_FAILED');
+    }
 
     const payload = (await res.json()) as { suggestions?: CitySuggestion[] };
     return payload.suggestions ?? [];

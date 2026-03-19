@@ -260,6 +260,13 @@ Returns server liveness status.
 |---|---|---|
 | `PORT` | `3001` | Port the Express server listens on |
 | `FRONTEND_ORIGIN` | `http://localhost:3000` | Allowed CORS origin (set to your deployed frontend URL in production) |
+| `OPENWEATHER_API_KEY` | _(optional)_ | OpenWeather fallback key used when primary provider is unavailable |
+
+Backend env file location:
+
+- Create `backend/.env` (do not commit it)
+- Copy values from `backend/.env.example`
+- Put your key on this line: `OPENWEATHER_API_KEY=...`
 
 ---
 

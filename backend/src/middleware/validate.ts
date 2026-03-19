@@ -185,7 +185,10 @@ export function validateCitySearchQuery(req: Request, res: Response, next: NextF
   }
 
   if (typeof q !== 'string' || q.trim().length < 2 || q.trim().length > 100 || !CITY_RE.test(q.trim())) {
-    res.status(400).json({ error: 'Bad Request', message: 'Invalid city search query.' });
+    res.status(400).json({
+      error: 'Bad Request',
+      message: 'Invalid city search query. Use 2-100 characters with letters, spaces, hyphens, apostrophes, or dots.',
+    });
     return;
   }
 

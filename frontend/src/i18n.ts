@@ -27,7 +27,12 @@ type MessageKey =
   | 'pressure'
   | 'gpsMode'
   | 'manualMode'
-  | 'cityMode';
+  | 'cityMode'
+  | 'searchingCities'
+  | 'citySearchFailed'
+  | 'citySearchRateLimited'
+  | 'noCitiesFound'
+  | 'staleDataWarning';
 
 const messages: Record<SupportedLanguage, Record<MessageKey, string>> = {
   tr: {
@@ -58,6 +63,11 @@ const messages: Record<SupportedLanguage, Record<MessageKey, string>> = {
     gpsMode: 'GPS',
     manualMode: 'Manuel',
     cityMode: 'Sehir',
+    searchingCities: 'Sehirler araniyor...',
+    citySearchFailed: 'Sehir onerileri alinamadi. Lutfen tekrar deneyin.',
+    citySearchRateLimited: 'Cok fazla arama yaptin. Lutfen biraz bekle.',
+    noCitiesFound: 'Sehir bulunamadi.',
+    staleDataWarning: 'Anlik veri alinamadi, onbellekteki son veri gosteriliyor.',
   },
   en: {
     loadingWeather: 'Loading weather...',
@@ -87,6 +97,11 @@ const messages: Record<SupportedLanguage, Record<MessageKey, string>> = {
     gpsMode: 'GPS',
     manualMode: 'Manual',
     cityMode: 'City',
+    searchingCities: 'Searching cities...',
+    citySearchFailed: 'Could not fetch city suggestions. Please try again.',
+    citySearchRateLimited: 'Too many searches. Please wait a moment.',
+    noCitiesFound: 'No cities found.',
+    staleDataWarning: 'Live feed is temporarily unavailable, showing cached data.',
   },
 };
 

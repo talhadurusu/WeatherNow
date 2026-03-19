@@ -24,7 +24,7 @@ function buildCacheKey(query: WeatherQuery): string {
   return `q:${digest}`;
 }
 
-export function getCachedWeather(query: WeatherQuery = {}): WeatherResponse {
+export async function getCachedWeather(query: WeatherQuery = {}): Promise<WeatherResponse> {
   const now = Date.now();
   const key = buildCacheKey(query);
   const entry = cache.get(key);
@@ -33,9 +33,23 @@ export function getCachedWeather(query: WeatherQuery = {}): WeatherResponse {
     return entry.data;
   }
 
-  const fresh = aggregateWeather(query);
-  cache.set(key, { data: fresh, expiresAt: now + CACHE_TTL_MS });
-  return fresh;
+  const stale = entry?.data;
+
+  try {
+    const fresh = await aggregateWeather(query);
+    cache.set(key, { data: fresh, expiresAt: now + CACHE_TTL_MS });
+    return fresh;
+  } catch {
+    if (stale) {
+      return {
+        ...stale,
+        freshness: 'stale',
+        accuracy: `${stale.accuracy} (stale cache)`,
+      };
+    }
+
+    throw new Error('Unable to fetch live weather data and no cached result is available.');
+  }
 }
 
 export function invalidateCache(query?: WeatherQuery): void {

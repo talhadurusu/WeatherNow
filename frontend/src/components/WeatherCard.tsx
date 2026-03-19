@@ -356,6 +356,19 @@ const WeatherCard: React.FC<WeatherCardProps> = ({ data, locale }) => {
               {data.accuracy}
             </span>
           </div>
+
+          {data.freshness === 'stale' && (
+            <p
+              style={{
+                margin: '8px 0 0',
+                fontSize: '12px',
+                color: '#ffd6a6',
+                letterSpacing: '0.02em',
+              }}
+            >
+              {t(locale, 'staleDataWarning')}
+            </p>
+          )}
         </div>
 
         {/* Weather stats */}

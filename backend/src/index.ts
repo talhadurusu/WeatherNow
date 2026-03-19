@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -82,6 +83,9 @@ app.get('/health', (_req, res) => {
 app.listen(PORT, () => {
   console.log(`WeatherNow backend running on http://localhost:${PORT}`);
   console.log(`Accepting requests from: ${validatedFrontendOrigin}`);
+  if (!process.env.OPENWEATHER_API_KEY) {
+    console.warn('OPENWEATHER_API_KEY is not set. Using Open-Meteo fallback provider only.');
+  }
 });
 
 export default app;

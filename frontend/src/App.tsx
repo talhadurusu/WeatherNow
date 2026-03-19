@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useId, useMemo, useState } from 'react'
 import type { FormEvent, KeyboardEvent } from 'react'
 import { useWeather } from './hooks/useWeather'
 import WeatherCard from './components/WeatherCard'
@@ -22,37 +22,74 @@ function App() {
   } = useWeather()
   const [cityInput, setCityInput] = useState('')
   const [cityError, setCityError] = useState<string | null>(null)
+  const [suggestionError, setSuggestionError] = useState<string | null>(null)
+  const [isFetchingSuggestions, setIsFetchingSuggestions] = useState(false)
+  const [hasSuggestionAttempt, setHasSuggestionAttempt] = useState(false)
   const [suggestions, setSuggestions] = useState<CitySuggestion[]>([])
   const [selectedIndex, setSelectedIndex] = useState<number>(-1)
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
+  const [selectedLocation, setSelectedLocation] = useState<CitySuggestion | null>(null)
+  const listboxId = useId()
 
   useEffect(() => {
     const q = cityInput.trim()
+    const hasSelectedLabel = selectedLocation && q === selectedLocation.displayName
+
+    if (hasSelectedLabel) {
+      setSuggestions([])
+      setSelectedIndex(-1)
+      setIsDropdownOpen(false)
+      setSuggestionError(null)
+      setIsFetchingSuggestions(false)
+      setHasSuggestionAttempt(false)
+      return
+    }
+
     if (q.length < 2) {
       const resetTimer = window.setTimeout(() => {
         setSuggestions([])
         setSelectedIndex(-1)
         setIsDropdownOpen(false)
+        setSuggestionError(null)
+        setIsFetchingSuggestions(false)
+        setHasSuggestionAttempt(false)
       }, 0)
 
       return () => {
         window.clearTimeout(resetTimer)
       }
-
-      return
     }
 
     const timer = window.setTimeout(async () => {
-      const items = await fetchCitySuggestions(q)
-      setSuggestions(items)
-      setSelectedIndex(items.length > 0 ? 0 : -1)
-      setIsDropdownOpen(items.length > 0)
+      setIsFetchingSuggestions(true)
+      setHasSuggestionAttempt(true)
+
+      try {
+        const items = await fetchCitySuggestions(q)
+        setSuggestions(items)
+        setSelectedIndex(items.length > 0 ? 0 : -1)
+        setIsDropdownOpen(items.length > 0)
+        setSuggestionError(null)
+      } catch (err) {
+        if (err instanceof Error && err.message === 'CITY_SEARCH_RATE_LIMIT') {
+          setSuggestionError(t(locale, 'citySearchRateLimited'))
+        } else if (err instanceof Error && err.message === 'CITY_SEARCH_INVALID') {
+          setSuggestionError(t(locale, 'citySearchFailed'))
+        } else {
+          setSuggestionError(t(locale, 'citySearchFailed'))
+        }
+        setSuggestions([])
+        setSelectedIndex(-1)
+        setIsDropdownOpen(false)
+      } finally {
+        setIsFetchingSuggestions(false)
+      }
     }, 280)
 
     return () => {
       window.clearTimeout(timer)
     }
-  }, [cityInput, fetchCitySuggestions])
+  }, [cityInput, fetchCitySuggestions, locale, selectedLocation])
 
   const selectedSuggestion = useMemo(() => {
     if (selectedIndex < 0) return null
@@ -60,7 +97,12 @@ function App() {
   }, [selectedIndex, suggestions])
 
   const onInputKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
-    if (!isDropdownOpen || suggestions.length === 0) return
+    if (!isDropdownOpen || suggestions.length === 0) {
+      if (event.key === 'Escape') {
+        setIsDropdownOpen(false)
+      }
+      return
+    }
 
     if (event.key === 'ArrowDown') {
       event.preventDefault()
@@ -74,25 +116,41 @@ function App() {
       return
     }
 
+    if (event.key === 'Home') {
+      event.preventDefault()
+      setSelectedIndex(0)
+      return
+    }
+
+    if (event.key === 'End') {
+      event.preventDefault()
+      setSelectedIndex(suggestions.length - 1)
+      return
+    }
+
     if (event.key === 'Enter' && selectedSuggestion) {
       event.preventDefault()
-      setCityInput(selectedSuggestion.displayName)
-      setManualLocation(selectedSuggestion)
-      setSuggestions([])
-      setIsDropdownOpen(false)
+      chooseSuggestion(selectedSuggestion)
       return
     }
 
     if (event.key === 'Escape') {
+      event.preventDefault()
       setIsDropdownOpen(false)
     }
   }
 
   const chooseSuggestion = (item: CitySuggestion) => {
+    if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
+      navigator.vibrate(10)
+    }
+
     setCityInput(item.displayName)
-    setManualLocation(item)
+    setSelectedLocation(item)
     setSuggestions([])
+    setSelectedIndex(-1)
     setIsDropdownOpen(false)
+    setSuggestionError(null)
     setCityError(null)
   }
 
@@ -106,13 +164,152 @@ function App() {
 
     setCityError(null)
 
-    if (selectedSuggestion) {
-      setManualLocation(selectedSuggestion)
+    if (selectedLocation && value === selectedLocation.displayName) {
+      setManualLocation(selectedLocation)
       setIsDropdownOpen(false)
       return
     }
 
-    setManualCity(value)
+    const normalizedCity = value.replace(/,/g, ' ').replace(/\s+/g, ' ').trim()
+    if (!normalizedCity) {
+      setCityError(t(locale, 'cityRequired'))
+      setIsDropdownOpen(false)
+      return
+    }
+
+    setSelectedLocation(null)
+    setManualCity(normalizedCity)
+    setSuggestions([])
+    setSelectedIndex(-1)
+    setIsDropdownOpen(false)
+  }
+
+  const showNoResults = hasSuggestionAttempt && !isFetchingSuggestions && !suggestionError && suggestions.length === 0 && cityInput.trim().length >= 2
+  const showSuggestionDropdown = cityInput.trim().length >= 2 && (isFetchingSuggestions || Boolean(suggestionError) || suggestions.length > 0 || showNoResults)
+
+  const renderSuggestionDropdown = (variant: 'main' | 'floating') => {
+    if (!showSuggestionDropdown) return null
+
+    const isMain = variant === 'main'
+
+    return (
+      <div
+        id={listboxId}
+        role="listbox"
+        style={{
+          position: 'absolute',
+          top: isMain ? '44px' : '42px',
+          left: 0,
+          right: 0,
+          zIndex: isMain ? 20 : 70,
+          border: '1px solid rgba(255,255,255,0.2)',
+          borderRadius: isMain ? '12px' : '10px',
+          background: isMain ? 'rgba(5, 16, 28, 0.96)' : 'rgba(3, 13, 24, 0.96)',
+          backdropFilter: isMain ? 'blur(8px)' : undefined,
+          maxHeight: '220px',
+          overflowY: 'auto',
+        }}
+      >
+        {isFetchingSuggestions && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 12px', color: 'rgba(255,255,255,0.8)', fontSize: '12px' }}>
+            <span
+              style={{
+                width: '12px',
+                height: '12px',
+                border: '2px solid rgba(255,255,255,0.2)',
+                borderTop: '2px solid #74b9ff',
+                borderRadius: '50%',
+                animation: 'spin 0.8s linear infinite',
+              }}
+            />
+            {t(locale, 'searchingCities')}
+          </div>
+        )}
+
+        {!isFetchingSuggestions && suggestionError && (
+          <p style={{ margin: 0, padding: '12px', color: '#ffc6c6', fontSize: '12px' }}>{suggestionError}</p>
+        )}
+
+        {!isFetchingSuggestions && !suggestionError && showNoResults && (
+          <p style={{ margin: 0, padding: '12px', color: 'rgba(255,255,255,0.7)', fontSize: '12px' }}>{t(locale, 'noCitiesFound')}</p>
+        )}
+
+        {!isFetchingSuggestions && !suggestionError && suggestions.map((item, idx) => (
+          <button
+            key={`${item.displayName}-${variant}-${idx}`}
+            type="button"
+            id={`${listboxId}-option-${idx}`}
+            role="option"
+            aria-selected={selectedIndex === idx}
+            onClick={() => chooseSuggestion(item)}
+            style={{
+              width: '100%',
+              minHeight: '44px',
+              textAlign: 'left',
+              padding: isMain ? '10px 12px' : '9px 10px',
+              border: 'none',
+              borderBottom: idx === suggestions.length - 1 ? 'none' : '1px solid rgba(255,255,255,0.08)',
+              cursor: 'pointer',
+              background: selectedIndex === idx
+                ? (isMain ? 'rgba(90, 167, 255, 0.2)' : 'rgba(126, 192, 255, 0.2)')
+                : 'transparent',
+              color: isMain ? '#eaf4ff' : '#e5f0ff',
+              fontSize: isMain ? '13px' : '12px',
+              transition: 'background 0.15s ease',
+            }}
+          >
+            {item.displayName}
+          </button>
+        ))}
+      </div>
+    )
+  }
+
+  const renderSelectedLocationChip = () => {
+    if (!selectedLocation) return null
+
+    return (
+      <div
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '8px',
+          background: 'rgba(90, 167, 255, 0.18)',
+          border: '1px solid rgba(90, 167, 255, 0.35)',
+          borderRadius: '999px',
+          padding: '6px 12px',
+          color: '#dff0ff',
+          fontSize: '12px',
+          maxWidth: '100%',
+        }}
+      >
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>✓ {selectedLocation.displayName}</span>
+        <button
+          type="button"
+          onClick={() => {
+            setSelectedLocation(null)
+            setCityInput('')
+            setSuggestions([])
+            setSelectedIndex(-1)
+            setIsDropdownOpen(false)
+            setSuggestionError(null)
+            setHasSuggestionAttempt(false)
+          }}
+          style={{
+            border: 'none',
+            background: 'transparent',
+            color: '#dff0ff',
+            cursor: 'pointer',
+            fontSize: '14px',
+            lineHeight: 1,
+            padding: '0 2px',
+          }}
+          aria-label="Clear selected location"
+        >
+          ×
+        </button>
+      </div>
+    )
   }
 
   const baseWrapperStyle = {
@@ -202,11 +399,22 @@ function App() {
             <input
               value={cityInput}
               onChange={(e) => {
-                setCityInput(e.target.value)
+                const nextValue = e.target.value
+                setCityInput(nextValue)
                 if (cityError) setCityError(null)
+                if (suggestionError) setSuggestionError(null)
+                if (selectedLocation && nextValue !== selectedLocation.displayName) {
+                  setSelectedLocation(null)
+                }
               }}
               onKeyDown={onInputKeyDown}
               placeholder={t(locale, 'cityPlaceholder')}
+              role="combobox"
+              aria-autocomplete="list"
+              aria-expanded={showSuggestionDropdown}
+              aria-haspopup="listbox"
+              aria-controls={listboxId}
+              aria-activedescendant={selectedIndex >= 0 ? `${listboxId}-option-${selectedIndex}` : undefined}
               style={{
                 border: '1px solid rgba(255,255,255,0.24)',
                 borderRadius: '12px',
@@ -216,44 +424,8 @@ function App() {
                 outline: 'none',
               }}
             />
-            {isDropdownOpen && suggestions.length > 0 && (
-              <div
-                style={{
-                  position: 'absolute',
-                  top: '44px',
-                  left: 0,
-                  right: 0,
-                  zIndex: 20,
-                  border: '1px solid rgba(255,255,255,0.2)',
-                  borderRadius: '12px',
-                  background: 'rgba(5, 16, 28, 0.96)',
-                  backdropFilter: 'blur(8px)',
-                  maxHeight: '220px',
-                  overflowY: 'auto',
-                }}
-              >
-                {suggestions.map((item, idx) => (
-                  <button
-                    key={`${item.displayName}-${idx}`}
-                    type="button"
-                    onClick={() => chooseSuggestion(item)}
-                    style={{
-                      width: '100%',
-                      textAlign: 'left',
-                      padding: '10px 12px',
-                      border: 'none',
-                      borderBottom: idx === suggestions.length - 1 ? 'none' : '1px solid rgba(255,255,255,0.08)',
-                      cursor: 'pointer',
-                      background: selectedIndex === idx ? 'rgba(90, 167, 255, 0.2)' : 'transparent',
-                      color: '#eaf4ff',
-                      fontSize: '13px',
-                    }}
-                  >
-                    {item.displayName}
-                  </button>
-                ))}
-              </div>
-            )}
+            {renderSuggestionDropdown('main')}
+            {renderSelectedLocationChip()}
             {cityError && <span style={{ color: '#ffb4b4', fontSize: '12px' }}>{cityError}</span>}
             <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
               <button
@@ -318,11 +490,22 @@ function App() {
             <input
               value={cityInput}
               onChange={(e) => {
-                setCityInput(e.target.value)
+                const nextValue = e.target.value
+                setCityInput(nextValue)
                 if (cityError) setCityError(null)
+                if (suggestionError) setSuggestionError(null)
+                if (selectedLocation && nextValue !== selectedLocation.displayName) {
+                  setSelectedLocation(null)
+                }
               }}
               onKeyDown={onInputKeyDown}
               placeholder={t(locale, 'cityPlaceholder')}
+              role="combobox"
+              aria-autocomplete="list"
+              aria-expanded={showSuggestionDropdown}
+              aria-haspopup="listbox"
+              aria-controls={listboxId}
+              aria-activedescendant={selectedIndex >= 0 ? `${listboxId}-option-${selectedIndex}` : undefined}
               style={{
                 flex: 1,
                 border: '1px solid rgba(255,255,255,0.2)',
@@ -347,44 +530,9 @@ function App() {
             >
               {t(locale, 'go')}
             </button>
-            {isDropdownOpen && suggestions.length > 0 && (
-              <div
-                style={{
-                  position: 'absolute',
-                  top: '42px',
-                  left: 0,
-                  right: 0,
-                  zIndex: 70,
-                  border: '1px solid rgba(255,255,255,0.2)',
-                  borderRadius: '10px',
-                  background: 'rgba(3, 13, 24, 0.96)',
-                  maxHeight: '220px',
-                  overflowY: 'auto',
-                }}
-              >
-                {suggestions.map((item, idx) => (
-                  <button
-                    key={`${item.displayName}-floating-${idx}`}
-                    type="button"
-                    onClick={() => chooseSuggestion(item)}
-                    style={{
-                      width: '100%',
-                      textAlign: 'left',
-                      padding: '9px 10px',
-                      border: 'none',
-                      borderBottom: idx === suggestions.length - 1 ? 'none' : '1px solid rgba(255,255,255,0.08)',
-                      cursor: 'pointer',
-                      background: selectedIndex === idx ? 'rgba(126, 192, 255, 0.2)' : 'transparent',
-                      color: '#e5f0ff',
-                      fontSize: '12px',
-                    }}
-                  >
-                    {item.displayName}
-                  </button>
-                ))}
-              </div>
-            )}
+            {renderSuggestionDropdown('floating')}
           </form>
+          {selectedLocation && <div style={{ marginTop: '8px' }}>{renderSelectedLocationChip()}</div>}
           {cityError && <p style={{ margin: '8px 0 0', color: '#ffc6c6', fontSize: '12px' }}>{cityError}</p>}
           {isFetching && <p style={{ margin: '8px 0 0', color: 'rgba(255,255,255,0.7)', fontSize: '12px' }}>{t(locale, 'updating')}</p>}
         </div>
